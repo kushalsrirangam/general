@@ -1,0 +1,123 @@
+:root {
+  --bg-dark: #0a0a0a;
+  --primary: #00ffc8;
+  --accent: #00ff99;
+  --card-bg: #1a1a1a;
+  --text-color: #e0e0e0;
+  --shadow: rgba(0, 255, 200, 0.3);
+}
+
+body {
+  font-family: 'Orbitron', sans-serif;
+  margin: 0;
+  background-color: var(--bg-dark);
+  color: var(--text-color);
+}
+
+nav {
+  display: flex;
+  justify-content: space-between;
+  overflow-x: auto;
+  padding: 10px;
+  background-color: #121212;
+  border-bottom: 2px solid var(--primary);
+  box-shadow: 0 2px 10px var(--shadow);
+}
+
+nav button {
+  flex: 1;
+  white-space: nowrap;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: bold;
+  background: transparent;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+nav button:hover {
+  background-color: var(--accent);
+  color: #000;
+}
+
+.section {
+  display: none;
+  padding: 20px;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+button,
+select,
+input[type="text"],
+input[type="range"] {
+  padding: 12px;
+  font-size: 15px;
+  border-radius: 8px;
+  border: none;
+  margin: 8px 0;
+  outline: none;
+}
+
+button {
+  background: var(--primary);
+  color: #000;
+  font-weight: bold;
+  box-shadow: 0 0 12px var(--shadow);
+}
+
+#map {
+  height: 50vh;
+  width: 100%;
+  border-radius: 10px;
+  box-shadow: 0 0 10px var(--shadow);
+}
+
+.log-box,
+.status-box {
+  background: var(--card-bg);
+  padding: 14px;
+  border-radius: 10px;
+  box-shadow: 0 0 6px var(--shadow);
+  margin-top: 12px;
+}
+
+#sensor-video img {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+}
+
+/* Floating microphone button */
+.floating-mic {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: var(--primary);
+  color: #000;
+  border: none;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  font-size: 26px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 0 15px var(--shadow);
+  z-index: 1000;
+  transition: background 0.2s ease;
+}
+
+.floating-mic:hover {
+  background: var(--accent);
+  color: #000;
+}
