@@ -248,6 +248,11 @@ def convert_logs_to_csv(logs):
 @app.route('/download_logs', methods=['GET'])
 def download_all_logs():
     try:
+        # Safe save location
+        save_dir = "/home/ada/de/log_exports"
+        os.makedirs(save_dir, exist_ok=True)
+        zip_filename = os.path.join(save_dir, "all_logs.zip")
+
         # Collections to export
         collections = [
             'battery_logs',
@@ -259,22 +264,37 @@ def download_all_logs():
             'video_logs'
         ]
 
-        zip_filename = "/tmp/all_logs.zip"
         with zipfile.ZipFile(zip_filename, 'w') as zipf:
             for col in collections:
-                docs = [doc.to_dict() for doc in db.collection(col).stream()]
-                if not docs:
-                    continue
-                df = pd.DataFrame(docs)
-                csv_path = f"/tmp/{col}.csv"
-                df.to_csv(csv_path, index=False)
-                zipf.write(csv_path, arcname=f"{col}.csv")
+                try:
+                    print(f"[EXPORT] Fetching: {col}")
+                    docs = [doc.to_dict() for doc in db.collection(col).stream()]
+                    if not docs:
+                        print(f"[SKIP] No data in {col}")
+                        continue
 
+                    df = pd.DataFrame(docs)
+                    if df.empty:
+                        continue
+
+                    csv_path = os.path.join(save_dir, f"{col}.csv")
+                    df.to_csv(csv_path, index=False)
+                    zipf.write(csv_path, arcname=f"{col}.csv")
+
+                except Exception as col_err:
+                    print(f"[WARN] Failed for {col}: {col_err}")
+
+        # Ensure ZIP file was created
+        if not os.path.exists(zip_filename):
+            return jsonify({"error": "ZIP file was not created"}), 500
+
+        print(f"[DOWNLOAD] ZIP created: {zip_filename}")
         return send_file(zip_filename, as_attachment=True, download_name="all_logs.zip")
 
     except Exception as e:
-        print("[ERROR] Failed to download all logs:", e)
+        print("[ERROR] Failed to create log ZIP:", e)
         return f"Error creating ZIP: {e}", 500
+
     
 @app.route("/set_analytics_section", methods=["POST"])
 def set_analytics_section():
