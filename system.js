@@ -1,8 +1,9 @@
-// system.js - Enhanced with Smart Voice Commands + Log Deletion Prompt + Quiet Mode Toggle + Wake Word Toggle
+// system.js - Fully Integrated Smart Voice System with Navigation & Wake Word Support
 
 let wakeListening = false;
-let wakeWordEnabled = true; // ✅ NEW: Toggle state
+let wakeWordEnabled = true;
 
+// 🧠 Initialize UI Toggles
 function toggleIndoorMode() {
   const enabled = document.getElementById("indoorToggle").checked;
   fetch("/config", {
@@ -11,9 +12,7 @@ function toggleIndoorMode() {
     body: JSON.stringify({ indoor_mode: enabled })
   })
     .then(res => res.json())
-    .then(() => {
-      speak(enabled ? "Indoor mode enabled" : "Indoor mode disabled");
-    });
+    .then(() => speak(enabled ? "Indoor mode enabled" : "Indoor mode disabled"));
 }
 
 function toggleQuietMode() {
@@ -24,9 +23,7 @@ function toggleQuietMode() {
     body: JSON.stringify({ quiet_mode_enabled: enabled })
   })
     .then(res => res.json())
-    .then(() => {
-      speak(enabled ? "Quiet mode enabled" : "Quiet mode disabled");
-    });
+    .then(() => speak(enabled ? "Quiet mode enabled" : "Quiet mode disabled"));
 }
 
 function toggleSmartVideo() {
@@ -35,9 +32,7 @@ function toggleSmartVideo() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ smart_video_enabled: enabled })
-  }).then(() => {
-    speak(enabled ? "Smart video recording enabled" : "Smart video recording disabled");
-  });
+  }).then(() => speak(enabled ? "Smart video recording enabled" : "Smart video recording disabled"));
 }
 
 function toggleResMode() {
@@ -46,11 +41,8 @@ function toggleResMode() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ high_res_mode: enabled })
-  }).then(() => {
-    speak(enabled ? "High resolution preview enabled" : "Low resolution preview enabled");
-  });
+  }).then(() => speak(enabled ? "High resolution preview enabled" : "Low resolution preview enabled"));
 }
-
 
 function toggleWakeWord() {
   wakeWordEnabled = document.getElementById("wakeToggle").checked;
@@ -78,35 +70,13 @@ function checkStatus() {
     });
 }
 
-function toggleLog() {
-  const log = document.getElementById("log");
-  log.style.display = log.style.display === "none" ? "block" : "none";
-  if (log.style.display === "block") {
-    log.textContent = "Loading...";
-    fetch("/status")
-      .then(res => res.json())
-      .then(data => {
-        log.innerHTML = `<strong>Status:</strong><br>Battery: ${data.battery}%<br>Health: ${data.health}`;
-      });
-  }
-}
-
 function deleteLogs() {
-  const logs = [
-    { key: "battery_logs", label: "Battery Logs" },
-    { key: "motion_logs", label: "Motion Logs" },
-    { key: "detection_logs", label: "Detection Logs" },
-    { key: "location_logs", label: "Location Logs" },
-    { key: "system_health_logs", label: "System Health Logs" },
-    { key: "video_logs", label: "Video Logs" }
-  ];
-
-  const selected = prompt("🧹 Which logs do you want to delete?\nOptions:\n- all\n- battery, ultrasonic, detection...\n\n(Type comma-separated keys or 'all')");
-
+  const selected = prompt("🧹 Which logs do you want to delete? Type comma-separated keys or 'all'");
   if (!selected) return speak("Log deletion cancelled.");
-  const keys = selected.trim().toLowerCase() === "all"
-    ? logs.map(l => l.key)
-    : selected.split(",").map(k => k.trim());
+  const keys = selected.trim().toLowerCase() === "all" ? [
+    "battery_logs", "ultrasonic_logs", "motion_logs",
+    "detection_logs", "location_logs", "system_health_logs", "video_logs"
+  ] : selected.split(",").map(k => k.trim());
 
   fetch("/delete_logs", {
     method: "POST",
@@ -115,12 +85,8 @@ function deleteLogs() {
   })
     .then(res => res.json())
     .then(res => {
-      if (res.status === "success") {
-        const deleted = logs.filter(l => keys.includes(l.key)).map(l => l.label).join(", ");
-        speak(`Deleted logs: ${deleted}`);
-      } else {
-        speak(`Failed to delete logs. ${res.message}`);
-      }
+      if (res.status === "success") speak(`Deleted logs: ${keys.join(", ")}`);
+      else speak(`Failed to delete logs. ${res.message}`);
     })
     .catch(() => speak("Error while deleting logs"));
 }
@@ -143,15 +109,13 @@ function switchSection(id, el = null, speakEnabled = true) {
   if (el) el.classList.add("active");
 
   const label = sectionNames[id] || id;
-
-  // 🛡️ Prevent repeating same message twice
   if (speakEnabled && window.lastSpokenSection !== label) {
     speak(`${label} activated`);
     window.lastSpokenSection = label;
   }
 }
 
-
+// Wake Word Listener Setup
 let wakeRecognizer = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
 wakeRecognizer.continuous = true;
 wakeRecognizer.interimResults = false;
@@ -159,7 +123,7 @@ wakeRecognizer.lang = "en-US";
 
 wakeRecognizer.onresult = function (event) {
   const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
-  if (wakeWordEnabled && (transcript.includes("hat") || transcript.includes("smart hat"))) {
+  if (wakeWordEnabled && /\b(smart hat|hat)\b/.test(transcript)) {
     speak("Yes? Listening now.");
     recognition.start();
   }
@@ -177,6 +141,7 @@ function startWakeWordListener() {
   }
 }
 
+// Main Recognition for Commands
 const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
 recognition.lang = "en-US";
 recognition.interimResults = false;
@@ -199,17 +164,10 @@ recognition.onerror = function (event) {
 };
 
 function shutdownPi() {
-  console.log("Shutdown function triggered...");  // Debugging line
   fetch("/shutdown", { method: "POST" })
     .then(res => res.json())
-    .then(data => {
-      console.log("Shutdown response:", data);  // Debugging line
-      speak(data.message);
-    })
-    .catch(err => {
-      console.error("Shutdown error:", err);   // Debugging line
-      speak("Shutdown failed");
-    });
+    .then(data => speak(data.message))
+    .catch(() => speak("Shutdown failed"));
 }
 
 function switchAnalyticsView(section) {
@@ -222,7 +180,7 @@ function switchAnalyticsView(section) {
   }
 }
 
-
+// All Voice Command Triggers
 const voiceCommands = {
   "dashboard": () => switchSection("dashboard", null, false),
   "open dashboard": () => switchSection("dashboard", null, false),
@@ -240,94 +198,21 @@ const voiceCommands = {
   "show detection graphs": () => switchAnalyticsView("detection"),
   "show interaction data": () => switchAnalyticsView("interaction"),
   "show video logs": () => switchAnalyticsView("videos"),
-
-
   "check battery": () => checkStatus(),
-
-  "enable indoor mode": () => {
-    document.getElementById("indoorToggle").checked = true;
-    toggleIndoorMode();
-  },
-  "disable indoor mode": () => {
-    document.getElementById("indoorToggle").checked = false;
-    toggleIndoorMode();
-  },
-  "enable quiet mode": () => {
-    document.getElementById("quietToggle").checked = true;
-    toggleQuietMode();
-  },
-  "disable quiet mode": () => {
-    document.getElementById("quietToggle").checked = false;
-    toggleQuietMode();
-  },
-  "enable wake word": () => {
-    document.getElementById("wakeToggle").checked = true;
-    toggleWakeWord();
-  },
-  "disable wake word": () => {
-    document.getElementById("wakeToggle").checked = false;
-    toggleWakeWord();
-  },
-
-  "shut down": () => {
-    shutdownPi();
-    speak("Shutting down the system");
-  },
-
-  "enable smart video": () => {
-  document.getElementById("smartVideoToggle").checked = true;
-  toggleSmartVideo();
-},
-"disable smart video": () => {
-  document.getElementById("smartVideoToggle").checked = false;
-  toggleSmartVideo();
-},
-"enable high resolution": () => {
-  document.getElementById("resToggle").checked = true;
-  toggleResMode();
-},
-"disable high resolution": () => {
-  document.getElementById("resToggle").checked = false;
-  toggleResMode();
-},
-
+  "enable indoor mode": () => { document.getElementById("indoorToggle").checked = true; toggleIndoorMode(); },
+  "disable indoor mode": () => { document.getElementById("indoorToggle").checked = false; toggleIndoorMode(); },
+  "enable quiet mode": () => { document.getElementById("quietToggle").checked = true; toggleQuietMode(); },
+  "disable quiet mode": () => { document.getElementById("quietToggle").checked = false; toggleQuietMode(); },
+  "enable wake word": () => { document.getElementById("wakeToggle").checked = true; toggleWakeWord(); },
+  "disable wake word": () => { document.getElementById("wakeToggle").checked = false; toggleWakeWord(); },
+  "shut down": () => { shutdownPi(); speak("Shutting down the system"); },
+  "enable smart video": () => { document.getElementById("smartVideoToggle").checked = true; toggleSmartVideo(); },
+  "disable smart video": () => { document.getElementById("smartVideoToggle").checked = false; toggleSmartVideo(); },
+  "enable high resolution": () => { document.getElementById("resToggle").checked = true; toggleResMode(); },
+  "disable high resolution": () => { document.getElementById("resToggle").checked = false; toggleResMode(); },
   "delete logs": () => deleteLogs(),
-  "repeat detection": () => speakLastDetection(),
-  "repeat message": () => speak(lastSpokenMessage),
-
-  "where am i": () => speakDetailedLocation(),
-  "get location": () => speakDetailedLocation(),
-
-  "start voice navigation": () => startVoiceSearch(),
-  "navigate to": () => startVoiceSearch(),
-
-  "pause navigation": () => {
-    toggleTracking();
-    speak("Navigation paused");
-  },
-  "resume navigation": () => {
-    toggleTracking();
-    speak("Navigation resumed");
-  }
+  "repeat message": () => speak(lastSpokenMessage)
 };
-
-
-function refreshWifiStatus() {
-    fetch('/wifi_status')
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('wifi-ssid').textContent = data.ssid;
-            document.getElementById('wifi-signal').textContent = data.signal;
-            document.getElementById('wifi-ip').textContent = data.ip;
-        })
-        .catch(error => {
-            console.error("Failed to fetch Wi-Fi status:", error);
-        });
-}
-
-// Auto refresh on load
-window.addEventListener('load', refreshWifiStatus);
-
 
 function handleVoiceCommand(transcript) {
   for (const phrase in voiceCommands) {
@@ -339,5 +224,8 @@ function handleVoiceCommand(transcript) {
   speak("Sorry, I didn't understand that command.");
 }
 
-// Start wake word listening on load
-window.addEventListener("DOMContentLoaded", startWakeWordListener);
+// Start everything
+window.addEventListener("DOMContentLoaded", () => {
+  startWakeWordListener();
+  refreshWifiStatus();
+});
