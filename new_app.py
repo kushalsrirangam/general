@@ -248,26 +248,20 @@ def convert_logs_to_csv(logs):
 @app.route('/download_logs', methods=['GET'])
 def download_all_logs():
     try:
-        # Safe save location
+        print("[DOWNLOAD] Request received")
         save_dir = "/home/ada/de/log_exports"
         os.makedirs(save_dir, exist_ok=True)
         zip_filename = os.path.join(save_dir, "all_logs.zip")
 
-        # Collections to export
         collections = [
-            'battery_logs',
-            'ultrasonic_logs',
-            'motion_logs',
-            'detection_logs',
-            'location_logs',
-            'system_health_logs',
-            'video_logs'
+            'battery_logs', 'ultrasonic_logs', 'motion_logs',
+            'detection_logs', 'location_logs', 'system_health_logs', 'video_logs'
         ]
 
         with zipfile.ZipFile(zip_filename, 'w') as zipf:
             for col in collections:
                 try:
-                    print(f"[EXPORT] Fetching: {col}")
+                    print(f"[EXPORT] Fetching collection: {col}")
                     docs = [doc.to_dict() for doc in db.collection(col).stream()]
                     if not docs:
                         print(f"[SKIP] No data in {col}")
@@ -275,25 +269,28 @@ def download_all_logs():
 
                     df = pd.DataFrame(docs)
                     if df.empty:
+                        print(f"[SKIP] Empty dataframe for: {col}")
                         continue
 
                     csv_path = os.path.join(save_dir, f"{col}.csv")
                     df.to_csv(csv_path, index=False)
                     zipf.write(csv_path, arcname=f"{col}.csv")
+                    print(f"[ZIP] Added {col}.csv")
 
                 except Exception as col_err:
                     print(f"[WARN] Failed for {col}: {col_err}")
 
-        # Ensure ZIP file was created
         if not os.path.exists(zip_filename):
+            print("[ERROR] ZIP file was not created")
             return jsonify({"error": "ZIP file was not created"}), 500
 
-        print(f"[DOWNLOAD] ZIP created: {zip_filename}")
+        print(f"[DOWNLOAD] Returning ZIP file: {zip_filename}")
         return send_file(zip_filename, as_attachment=True, download_name="all_logs.zip")
 
     except Exception as e:
-        print("[ERROR] Failed to create log ZIP:", e)
+        print("[ERROR] Failed to create/send log ZIP:", e)
         return f"Error creating ZIP: {e}", 500
+
 
     
 @app.route("/set_analytics_section", methods=["POST"])
