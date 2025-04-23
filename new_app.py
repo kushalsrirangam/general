@@ -150,6 +150,9 @@ def fetch_location_logs():
 def fetch_motion_logs():
     return fetch_data("motion_logs")
 
+def fetch_ultrasonic_logs():
+    return fetch_data("ultrasonic_logs")
+
 # Graph generator callback builder
 def generate_graph_callback(fetch_func, graph_id, y_columns=None, title="", kind="line", interval_id='fast-refresh'):
     @dash_app.callback(Output(graph_id, 'figure'), Input(interval_id, 'n_intervals'))
@@ -198,6 +201,14 @@ dash_app.layout = dbc.Container([
         dbc.Col(dcc.Graph(id='voice-command-graph'), lg=6),
         dbc.Col(dcc.Graph(id='video-trigger-graph'), lg=6),
     ]),
+    dbc.Row([
+        dbc.Col(dcc.Graph(id='motion-graph'), lg=12),
+    ]),
+
+    html.H4("📡 Ultrasonic Sensor Insights", className="my-3"),
+    dbc.Row([
+        dbc.Col(dcc.Graph(id='ultra-graph'), lg=12),
+    ]),
 
     html.H4("👨‍🦯 User-Centric Insights", className="my-3"),
     dbc.Row([
@@ -205,26 +216,20 @@ dash_app.layout = dbc.Container([
     ])
 ])
 
-# Register callbacks
-# Battery
-generate_graph_callback(fetch_battery, 'battery-graph', ['battery_percentage'], "Battery Over Time", interval_id='slow-refresh')
-# CPU
-generate_graph_callback(fetch_system_health, 'cpu-graph', ['cpu'], "CPU Usage Over Time", interval_id='slow-refresh')
-# FPS
-generate_graph_callback(lambda: fetch_detection(full=True), 'fps-graph', ['frame_id'], "FPS Over Time", interval_id='fast-refresh')
-# Latency
-generate_graph_callback(lambda: fetch_detection(full=True), 'latency-graph', ['duration_ms'], "Latency (ms) Over Time", interval_id='slow-refresh')
-# Detections
-generate_graph_callback(lambda: fetch_detection(full=False), 'detection-log-graph', ['detection_count'], "Detections Over Time", kind="bar", interval_id='slow-refresh')
-# Label Frequency
-generate_graph_callback(lambda: fetch_detection(full=True), 'label-frequency-graph', ['label'], "Detected Labels", kind="bar", interval_id='slow-refresh')
-# Voice Commands
-generate_graph_callback(fetch_voice_logs, 'voice-command-graph', ['command'], "Voice Commands Over Time", kind="bar", interval_id='slow-refresh')
-# Video Triggers
-generate_graph_callback(fetch_video_logs, 'video-trigger-graph', ['video_url'], "Smart Video Recordings", kind="bar", interval_id='slow-refresh')
-# Distance Walked
-generate_graph_callback(fetch_location_logs, 'distance-walked-graph', ['distance_m'], "Distance Walked (meters)", kind="line", interval_id='slow-refresh')
 
+# Register callbacks
+# Graph registration
+generate_graph_callback(fetch_battery, 'battery-graph', ['battery_percentage'], "Battery Over Time", interval_id='slow-refresh')()
+generate_graph_callback(fetch_system_health, 'cpu-graph', ['cpu'], "CPU Usage Over Time", interval_id='slow-refresh')()
+generate_graph_callback(lambda: fetch_detection(full=True), 'fps-graph', ['frame_id'], "FPS Over Time", interval_id='fast-refresh')()
+generate_graph_callback(lambda: fetch_detection(full=True), 'latency-graph', ['duration_ms'], "Latency (ms) Over Time", interval_id='slow-refresh')()
+generate_graph_callback(lambda: fetch_detection(full=False), 'detection-log-graph', ['detection_count'], "Detections Over Time", kind="bar", interval_id='slow-refresh')()
+generate_graph_callback(lambda: fetch_detection(full=True), 'label-frequency-graph', ['label'], "Detected Labels", kind="bar", interval_id='slow-refresh')()
+generate_graph_callback(fetch_voice_logs, 'voice-command-graph', ['command'], "Voice Commands Over Time", kind="bar", interval_id='slow-refresh')()
+generate_graph_callback(fetch_video_logs, 'video-trigger-graph', ['video_url'], "Smart Video Recordings", kind="bar", interval_id='slow-refresh')()
+generate_graph_callback(fetch_location_logs, 'distance-walked-graph', ['distance_m'], "Distance Walked (meters)", kind="line", interval_id='slow-refresh')()
+generate_graph_callback(fetch_motion_logs, 'motion-graph', ['motion_value'], "Motion Status Over Time", kind="line", interval_id='fast-refresh')()
+generate_graph_callback(fetch_ultrasonic_logs, 'ultra-graph', ['readings.Left Front', 'readings.Right Front'], "Ultrasonic Readings (Front)", kind="line", interval_id='fast-refresh')()
 
 
 # Function to convert logs to CSV
