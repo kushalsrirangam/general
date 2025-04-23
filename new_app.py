@@ -383,6 +383,9 @@ baseline_distances = {}  # Track average distance per sensor
 def ultrasonic_loop():
     global logging_paused, health_status, ultrasonic_readings
     h = None
+    last_logged_time = 0
+    prev_logged = {}
+
     try:
         h = lgpio.gpiochip_open(4)
         for s in SENSORS.values():
@@ -396,7 +399,7 @@ def ultrasonic_loop():
 
         while True:
             if logging_paused:
-                print("[ULTRASONIC] Skipping log due to paused flag")
+                print("[ULTRASONIC] Logging paused")
                 time.sleep(1)
                 continue
 
@@ -419,12 +422,10 @@ def ultrasonic_loop():
                             readings[name] = round(smoothed, 2)
                             successful_readings += 1
 
-                            # Save baseline (if no alert)
                             if name not in baseline_distances:
                                 baseline_distances[name] = smoothed
                             else:
                                 baseline_distances[name] = 0.9 * baseline_distances[name] + 0.1 * smoothed
-
                         else:
                             readings[name] = None
                             detection_timers.pop(name, None)
@@ -436,11 +437,9 @@ def ultrasonic_loop():
                     failed.append(name)
                     detection_timers.pop(name, None)
 
-            # HALLWAY LOGIC
             left_close = any(name.startswith("Left") and dist and dist < 80 for name, dist in readings.items())
             right_close = any(name.startswith("Right") and dist and dist < 80 for name, dist in readings.items())
 
-            # Speak only if one side is unusually close (new obstacle)
             if ultrasonic_voice_enabled and voice_alert_enabled and not config_data.get("indoor_mode", False):
                 for name, dist in readings.items():
                     if dist and dist < threshold:
@@ -448,9 +447,9 @@ def ultrasonic_loop():
                         side = "left" if "Left" in name else "right"
 
                         if left_close and right_close:
-                            continue  # hallway — suppress speaking
+                            continue
 
-                        if dist < baseline * 0.6:  # sudden close object
+                        if dist < baseline * 0.6:
                             if name not in detection_timers:
                                 detection_timers[name] = now
                             elif now - detection_timers[name] > 2 and now - last_ultra_speak_time.get(name, 0) > 4:
@@ -462,7 +461,7 @@ def ultrasonic_loop():
                         detection_timers.pop(name, None)
 
             if successful_readings == 0:
-                print("[SKIP] All ultrasonic sensors failed — not logging this cycle.")
+                print("[ULTRASONIC] All failed")
                 health_status = "All sensors unresponsive"
                 if ultrasonic_voice_enabled and voice_alert_enabled and not config_data.get("indoor_mode", False) and now - last_ultra_speak_time.get("all_failed", 0) > 10:
                     push_message_to_clients("All ultrasonic sensors are offline. Please check connections.")
@@ -471,22 +470,37 @@ def ultrasonic_loop():
                 continue
 
             ultrasonic_readings = readings
-            db.collection('ultrasonic_logs').add({
-                'timestamp': int(time.time() * 1000),
-                'readings': readings,
-                'faults': failed
-            })
             health_status = "OK" if not failed else f"Sensor fault: {', '.join(failed)}"
+
+            # 🧠 Only log if changed or 10s passed
+            def changed_significantly(new, old, threshold=5):
+                for k in new:
+                    if k not in old:
+                        return True
+                    if new[k] and old[k] and abs(new[k] - old[k]) > threshold:
+                        return True
+                return False
+
+            if changed_significantly(readings, prev_logged) or now - last_logged_time > 10:
+                db.collection('ultrasonic_logs').add({
+                    'timestamp': int(now * 1000),
+                    'readings': readings,
+                    'faults': failed
+                })
+                last_logged_time = now
+                prev_logged = readings.copy()
+
             time.sleep(1)
 
     except Exception as e:
-        print("[Ultrasonic Error]", e)
+        print("[ULTRASONIC ERROR]", e)
     finally:
-        if h is not None:
+        if h:
             try:
                 lgpio.gpiochip_close(h)
             except Exception as e:
                 print("[ULTRASONIC] Failed to close gpiochip:", e)
+
 
 
 
@@ -1104,7 +1118,7 @@ def delete_logs():
     try:
         collections = [
             'battery_logs',
-            #'ultrasonic_logs',
+            'ultrasonic_logs',
             'motion_logs',
             'detection_logs',
             'location_logs',
